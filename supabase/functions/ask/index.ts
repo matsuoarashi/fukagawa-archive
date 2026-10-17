@@ -119,28 +119,34 @@ Deno.serve(async (req) => {
   const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 800, stream: true, messages: [{ role: "user", content: buildPrompt(kind, q, pool) }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 1000, stream: true, thinking: { type: "disabled" }, messages: [{ role: "user", content: buildPrompt(kind, q, pool) }] }),
   });
-  if (!upstream.ok || !upstream.body) return fail(h, upstream.status === 429 ? 429 : 502, upstream.status === 429 ? "rate_limited" : "unavailable");
+  if (!upstream.ok || !upstream.body) { console.error("anthropic http", upstream.status, (await upstream.text().catch(() => "")).slice(0, 300)); return fail(h, upstream.status === 429 ? 429 : 502, upstream.status === 429 ? "rate_limited" : "unavailable"); }
 
   // Anthropic の流れ（SSE）から文字だけを取り出して、そのままページへ流す
   let full = "";
   const reader = upstream.body.pipeThrough(new TextDecoderStream()).getReader();
   const stream = new ReadableStream({
     async start(ctrl) {
-      const enc = new TextEncoder(); let buf = "", done = false;
+      const enc = new TextEncoder(); let buf = "", done = false; const seen: string[] = [];
+      const handle = (line: string) => {
+        line = line.trim();
+        if (!line.startsWith("data:")) return;
+        let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch { return; }
+        if (seen.length < 16) seen.push(ev.type + (ev.delta?.type ? ":" + ev.delta.type : "") + (ev.delta?.stop_reason ? ":" + ev.delta.stop_reason : "") + (ev.content_block?.type ? ":" + ev.content_block.type : ""));
+        if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") { full += ev.delta.text; ctrl.enqueue(enc.encode(ev.delta.text)); }
+        else if (ev.type === "message_stop") done = true;
+        else if (ev.type === "error") console.error("anthropic error", JSON.stringify(ev.error ?? ev));
+      };
       try {
         while (true) {
           const { value, done: end } = await reader.read(); if (end) break;
-          buf += value; const lines = buf.split("\n"); buf = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.startsWith("data:")) continue;
-            let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
-            if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") { full += ev.delta.text; ctrl.enqueue(enc.encode(ev.delta.text)); }
-            if (ev.type === "message_stop") done = true;
-          }
+          buf += value; const lines = buf.split(/\r?\n/); buf = lines.pop() ?? "";
+          for (const line of lines) handle(line);
         }
-      } catch { /* 途中で切れたら、そこまでを返す */ }
+        if (buf) handle(buf);
+      } catch (e) { console.error("stream cut", String(e)); }
+      if (!full) { console.error("empty answer", MODEL, seen.join(",")); ctrl.enqueue(enc.encode("（うまく書けませんでした。少し時間をおいてもう一度お試しください）")); }
       ctrl.close();
       if (done && full) await db.from("ai_cache").upsert({ key, text: full, at: new Date().toISOString() });
     },
