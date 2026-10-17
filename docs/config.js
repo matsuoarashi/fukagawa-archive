@@ -5,7 +5,7 @@ window.FK_CONFIG = {
   supabaseUrl: "https://gsrlxjeikejjnnnexnlo.supabase.co",
   // 同じ画面の「anon public」または「Publishable key」（公開用。誰に見られても大丈夫な鍵です）
   // ↓ Supabase の「anon public」キーを、下の "" の間に貼り付けてください
-  supabaseAnonKey: "",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdzcmx4amVpa2Vqam5ubmV4bmxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODMyNTgsImV4cCI6MjEwNzc1OTI1OH0.oG2kdVdrCHhkKBeWSby26yhEr2-iZQWxxjNdu2hgmtk",
   // まとめ（AI）を公開ページでも使うか。使わないなら false
   ai: true,
   // Cloudflare Turnstile の Site Key（使わないなら空のまま）
