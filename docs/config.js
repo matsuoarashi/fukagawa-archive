@@ -2,8 +2,9 @@
 // 空のままでも、閲覧・検索・地図・つながりの図はすべて動きます（書き込みとまとめだけが止まります）。
 window.FK_CONFIG = {
   // Supabase → Project Settings → API の「Project URL」
-  supabaseUrl: "",
+  supabaseUrl: "https://gsrlxjeikejjnnnexnlo.supabase.co",
   // 同じ画面の「anon public」または「Publishable key」（公開用。誰に見られても大丈夫な鍵です）
+  // ↓ Supabase の「anon public」キーを、下の "" の間に貼り付けてください
   supabaseAnonKey: "",
   // まとめ（AI）を公開ページでも使うか。使わないなら false
   ai: true,
